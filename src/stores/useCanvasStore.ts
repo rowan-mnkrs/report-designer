@@ -4,6 +4,7 @@ import type { ReportElement, ElementStyle, ToolMode } from '../types/schema';
 
 const MAX_HISTORY = 50;
 const SNAP_THRESHOLD = 5;
+const EMPTY_GUIDES: Guides = {};
 
 export interface Guides {
   x?: number;
@@ -31,6 +32,7 @@ interface CanvasState {
   clearSelected: () => void;
   updateStyle: (ids: string[], style: Partial<ElementStyle>) => void;
   updateElement: (id: string, patch: Partial<ReportElement>) => void;
+  pushHistory: () => void;
   undo: () => void;
   setZoom: (zoom: number) => void;
   toggleSnap: () => void;
@@ -134,10 +136,6 @@ export const useCanvasStore = create<CanvasState>()((set) => ({
       const el = state.elements.get(id);
       if (!el) return state;
       const newElements = new Map(state.elements);
-      const newHistory = [
-        ...state.history.slice(-MAX_HISTORY + 1),
-        snapshot(state.elements),
-      ];
       newElements.set(id, {
         ...el,
         width: Math.max(20, width),
@@ -145,7 +143,7 @@ export const useCanvasStore = create<CanvasState>()((set) => ({
         x: x ?? el.x,
         y: y ?? el.y,
       });
-      return { elements: newElements, history: newHistory };
+      return { elements: newElements };
     });
   },
 
@@ -211,6 +209,12 @@ export const useCanvasStore = create<CanvasState>()((set) => ({
     });
   },
 
+  pushHistory: () => {
+    set((state) => ({
+      history: [...state.history.slice(-MAX_HISTORY + 1), snapshot(state.elements)],
+    }));
+  },
+
   undo: () => {
     set((state) => {
       if (state.history.length === 0) return state;
@@ -236,7 +240,7 @@ export const useCanvasStore = create<CanvasState>()((set) => ({
 
   setToolMode: (mode) => set({ toolMode: mode }),
 
-  clearGuides: () => set({ guides: {} }),
+  clearGuides: () => set({ guides: EMPTY_GUIDES }),
 }));
 
 // Selector helpers

@@ -140,6 +140,7 @@ function toNode(el: ReportElement, schema: FieldSchema[]): React.ReactElement | 
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 function ReportDocument({ elements, schema }: { elements: ReportElement[]; schema: FieldSchema[] }): React.ReactElement {
   const sorted = [...elements].sort((a, b) => a.y - b.y);
   return (

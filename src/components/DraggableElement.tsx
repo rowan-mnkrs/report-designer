@@ -222,12 +222,13 @@ const DraggableElement = React.memo(function DraggableElement({ element, isSelec
   const resizeElement = useCanvasStore((s) => s.resizeElement);
   const clearGuides = useCanvasStore((s) => s.clearGuides);
   const updateElement = useCanvasStore((s) => s.updateElement);
+  const pushHistory = useCanvasStore((s) => s.pushHistory);
 
   const dragOffset = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const resizeHandle = useRef<Handle | null>(null);
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0 });
-  const [, forceUpdate] = useState(0);
+  const [isDraggingState, setIsDraggingState] = useState(false);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -246,17 +247,18 @@ const DraggableElement = React.memo(function DraggableElement({ element, isSelec
       y: e.clientY / zoom - element.y,
     };
     isDragging.current = true;
+    setIsDraggingState(true);
 
     const onMove = (me: MouseEvent) => {
       if (!isDragging.current) return;
       const newX = me.clientX / zoom - dragOffset.current.x;
       const newY = me.clientY / zoom - dragOffset.current.y;
       moveElement(element.id, Math.max(0, newX), Math.max(0, newY));
-      forceUpdate((n) => n + 1);
     };
 
     const onUp = () => {
       isDragging.current = false;
+      setIsDraggingState(false);
       clearGuides();
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
@@ -269,6 +271,7 @@ const DraggableElement = React.memo(function DraggableElement({ element, isSelec
   const onResizeMouseDown = useCallback((e: React.MouseEvent, handle: Handle) => {
     e.stopPropagation();
     e.preventDefault();
+    pushHistory();
     resizeHandle.current = handle;
     resizeStart.current = {
       mouseX: e.clientX,
@@ -301,7 +304,7 @@ const DraggableElement = React.memo(function DraggableElement({ element, isSelec
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [element, zoom, resizeElement]);
+  }, [element, zoom, resizeElement, pushHistory]);
 
   const onImageClick = useCallback(() => {
     if (element.type !== 'image') return;
@@ -331,7 +334,7 @@ const DraggableElement = React.memo(function DraggableElement({ element, isSelec
         transform: `translate3d(${element.x}px, ${element.y}px, 0)`,
         width: element.width,
         height: element.height,
-        cursor: isDragging.current ? 'grabbing' : 'grab',
+        cursor: isDraggingState ? 'grabbing' : 'grab',
         outline: isSelected ? '2px solid #00d4ff' : 'none',
         outlineOffset: 1,
         userSelect: 'none',

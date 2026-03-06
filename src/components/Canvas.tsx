@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCanvasStore } from '../stores/useCanvasStore';
 import { useSchemaStore } from '../stores/useSchemaStore';
@@ -85,11 +85,22 @@ export default function Canvas(): React.ReactElement {
   const [lasso, setLasso] = useState<LassoRect | null>(null);
   const lassoStart = useRef<{ x: number; y: number } | null>(null);
 
-  // Keyboard handlers
+  // Stable refs so event listeners don't need to re-register on every element mutation
+  const selectedIdsRef = useRef(selectedIds);
+  const elementsRef = useRef(elements);
+  useLayoutEffect(() => {
+    selectedIdsRef.current = selectedIds;
+    elementsRef.current = elements;
+  });
+
+  // Keyboard handlers — uses refs so listener is registered once, not on every element mutation
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+      const currentSelectedIds = selectedIdsRef.current;
+      const currentElements = elementsRef.current;
 
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
         e.preventDefault();
@@ -106,7 +117,7 @@ export default function Canvas(): React.ReactElement {
         return;
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedIds.size > 0) {
+        if (currentSelectedIds.size > 0) {
           e.preventDefault();
           deleteSelected();
         }
@@ -115,30 +126,30 @@ export default function Canvas(): React.ReactElement {
 
       const nudge = e.shiftKey ? 10 : 1;
       if (e.key === 'ArrowLeft') {
-        for (const id of selectedIds) {
-          const el = elements.get(id);
+        for (const id of currentSelectedIds) {
+          const el = currentElements.get(id);
           if (el) moveElement(id, el.x - nudge, el.y);
         }
       } else if (e.key === 'ArrowRight') {
-        for (const id of selectedIds) {
-          const el = elements.get(id);
+        for (const id of currentSelectedIds) {
+          const el = currentElements.get(id);
           if (el) moveElement(id, el.x + nudge, el.y);
         }
       } else if (e.key === 'ArrowUp') {
-        for (const id of selectedIds) {
-          const el = elements.get(id);
+        for (const id of currentSelectedIds) {
+          const el = currentElements.get(id);
           if (el) moveElement(id, el.x, el.y - nudge);
         }
       } else if (e.key === 'ArrowDown') {
-        for (const id of selectedIds) {
-          const el = elements.get(id);
+        for (const id of currentSelectedIds) {
+          const el = currentElements.get(id);
           if (el) moveElement(id, el.x, el.y + nudge);
         }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedIds, elements, undo, selectAll, clearSelected, deleteSelected, moveElement]);
+  }, [undo, selectAll, clearSelected, deleteSelected, moveElement]);
 
   // Ctrl+Scroll zoom
   useEffect(() => {
@@ -228,7 +239,7 @@ export default function Canvas(): React.ReactElement {
 
         if (lw > 5 || lh > 5) {
           const intersected: string[] = [];
-          for (const [id, el] of elements) {
+          for (const [id, el] of elementsRef.current) {
             if (
               el.x < lx + lw &&
               el.x + el.width > lx &&
@@ -250,7 +261,7 @@ export default function Canvas(): React.ReactElement {
       window.addEventListener('mousemove', onMove);
       window.addEventListener('mouseup', onUp);
     },
-    [toolMode, zoom, elements, addElement, clearSelected, setSelected]
+    [toolMode, zoom, addElement, clearSelected, setSelected]
   );
 
   const lassoStyle: React.CSSProperties | undefined = lasso

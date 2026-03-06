@@ -88,3 +88,46 @@ src/
 | XML parsing | Native `DOMParser` | Zero dependency |
 | Validation | Zod for `ReportElement` | Runtime safety on positions/styles |
 | GPU optimization | `translate3d` + `will-change: transform` | Compositor layer promotion |
+| Ref sync in Canvas | `useLayoutEffect` (no deps) | Keeps `elementsRef`/`selectedIdsRef` current after every render without exposing them to event listener effect deps |
+
+---
+
+## Current Status (2026-03-06)
+
+### ✅ Completed & Stable
+- Full two-phase flow: Upload (XLSX/XML parsing) → Designer
+- All 6 element types: `field`, `label`, `image`, `table`, `shape`, `divider`
+- Drag-and-drop from SchemaPanel → Canvas (creates `field` element at drop coords)
+- Tool placement from Toolbar (click canvas to place label/rect/ellipse/line/image/table/divider)
+- Resize handles (8 anchors, all directions) with live preview
+- Snap guides (5px threshold, red overlay lines)
+- Multi-select (Cmd+click, lasso drag)
+- Keyboard shortcuts: Delete, arrows (1px/10px nudge), Cmd+A, Cmd+Z, Escape
+- PropertyPanel: position/size, opacity, text style, field binding, table cell editor, image upload, shape/divider controls
+- Undo (50-snapshot history, push on add/delete/style/updateElement)
+- Zoom (Ctrl+scroll + toolbar +/−)
+- Grid toggle, snap toggle
+- PDF export (`@react-pdf/renderer`)
+- JSON template export
+- Schema persisted to sessionStorage via Zustand persist
+- TypeScript: zero errors (`tsc --noEmit` clean)
+- ESLint: zero errors/warnings
+
+### 🐛 Bugs Fixed
+- PropertyPanel: hooks called after conditional return → Rules of Hooks crash
+- SchemaPanel: tooltip `position:absolute left:100%` caused mouse-enter/leave flicker loop at browser-event frequency → freeze
+- Zod v4: `z.discriminatedUnion` → `z.union`; `z.record(z.string())` → `z.record(z.string(), z.string())`
+- `resizeElement` pushed history on every `mousemove` (60fps O(n) allocs) → removed history push, call `pushHistory()` once at resize start
+- `forceUpdate` in drag `onMove` caused double render per frame → replaced with `isDraggingState` (2 renders total per drag)
+- Keyboard `useEffect` deps included `elements` Map → listener re-registered 60fps during drag → moved to `useLayoutEffect` ref sync pattern
+- `onCanvasMouseDown` deps included `elements` → same 60fps recreation → use `elementsRef.current` in lasso handler
+- `clearGuides` created new `{}` on every call → stable `EMPTY_GUIDES` constant
+
+### ⚠️ Known Limitations / Future Work
+- `updateElement` pushes history on every label textarea keystroke — acceptable for now, could debounce
+- `resizeElement` via PropertyPanel number inputs is not undoable (no history push) — by design for now
+- Table cell editor uses `window.prompt` — should be replaced with inline editing UI
+- Toolbar keyboard shortcuts (V/T/R/E/L/I/B/D) are labelled but not wired up
+- No copy/paste of elements
+- No layer ordering (z-index control)
+- No multi-page support
